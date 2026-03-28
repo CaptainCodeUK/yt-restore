@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "YT Restore — Queue & Watch Later",
+  "version": "1.0.0",
+  "description": "Restores Add to Queue and Watch Later buttons that YouTube removed.",
+"host_permissions": [
+    "https://www.youtube.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["src/content.js"],
+      "css": ["src/styles.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["src/inject.js"],
+      "matches": ["https://www.youtube.com/*"]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "YT Restore"
+  }
+}

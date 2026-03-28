@@ -1,0 +1,148 @@
+/* ─── YT Restore — styles.css ───────────────────────────────────────────────
+   All injected UI elements are scoped under .ytr-* class names to avoid
+   clashing with YouTube's own styles.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --ytr-accent: #ff0000;
+  --ytr-bg: rgba(15, 15, 15, 0.45);
+  --ytr-bg-hover: rgba(15, 15, 15, 0.70);
+  --ytr-text: #ffffff;
+  --ytr-radius: 6px;
+  --ytr-transition: 0.15s ease;
+}
+
+/* ─── Thumbnail overlay ──────────────────────────────────────────────────── */
+
+.ytr-overlay {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--ytr-transition);
+  z-index: 100;
+}
+
+/* Show on hover — works for both new (yt-thumbnail-view-model) and legacy (a#thumbnail) */
+.ytr-thumb-wrap:hover .ytr-overlay {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.ytr-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: var(--ytr-bg);
+  color: var(--ytr-text);
+  border: none;
+  border-radius: var(--ytr-radius);
+  cursor: pointer;
+  transition: background var(--ytr-transition), transform var(--ytr-transition);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.ytr-btn:hover {
+  background: var(--ytr-bg-hover);
+  transform: scale(1.08);
+}
+
+.ytr-btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.ytr-btn:focus-visible {
+  outline: 2px solid var(--ytr-accent);
+  outline-offset: 2px;
+}
+
+/* ─── Player page buttons ────────────────────────────────────────────────── */
+
+.ytr-player-btn-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-right: 8px;
+}
+
+.ytr-player-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  color: var(--yt-spec-text-primary, #0f0f0f);
+  border: none;
+  border-radius: 18px;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: "Roboto", "Arial", sans-serif;
+  cursor: pointer;
+  transition: background var(--ytr-transition);
+  white-space: nowrap;
+}
+
+/* Dark mode support — YouTube sets this attribute on <html> */
+html[dark] .ytr-player-btn,
+ytd-app[dark] .ytr-player-btn {
+  color: #f1f1f1;
+}
+
+.ytr-player-btn:hover {
+  background: var(--yt-spec-button-chip-background-hover, rgba(0, 0, 0, 0.1));
+}
+
+html[dark] .ytr-player-btn:hover,
+ytd-app[dark] .ytr-player-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.ytr-player-btn:focus-visible {
+  outline: 2px solid var(--ytr-accent);
+  outline-offset: 2px;
+}
+
+.ytr-player-btn svg {
+  flex-shrink: 0;
+  opacity: 0.87;
+}
+
+/* ─── Toast notification ─────────────────────────────────────────────────── */
+
+#ytr-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 10px 16px;
+  background: #282828;
+  color: #ffffff;
+  font-family: "Roboto", "Arial", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  z-index: 99999;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+#ytr-toast.ytr-toast--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+#ytr-toast.ytr-toast--error {
+  background: #b00020;
+}
