@@ -20,8 +20,8 @@ A lightweight Chrome/Edge extension that brings back the **Add to Queue** and **
 
 ### From the store
 
-- Chrome Web Store *(link once published)*
-- Edge Add-ons *(link once published)*
+- [Chrome Web Store](https://chromewebstore.google.com/detail/yt-restore-%E2%80%94-queue-watch/chnenkpdgjebffanaggkhopgimpchdej)
+- [Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/yt-restore-%E2%80%94-queue-watc/ipocmnmhdmilfcfpckpkejdkondjicak)
 
 ### Developer / unpacked
 
