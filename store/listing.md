@@ -58,3 +58,15 @@ Use this answer:
 > The extension injects a small content script into YouTube pages to add hover
 > buttons to video thumbnails. Access to youtube.com is required solely for this
 > purpose. No data is read from or transmitted outside the page.
+
+Chrome Web Store may also ask for privacy practice justifications for `storage`
+and `tabs`. Use these answers:
+
+> `storage` is used only to save local user preferences for the extension UI,
+> such as button order and whether to hide overlays when native YouTube buttons
+> are present. It does not store browsing history, watch history, or any
+> personal data.
+
+> `tabs` is used only so the popup can target the currently active YouTube tab
+> when the user clicks actions like Rebuild Overlays. The extension does not
+> read, store, or transmit tab content, URLs, or browsing history.
