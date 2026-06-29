@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YT Restore — Queue & Watch Later",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Restores Add to Queue and Watch Later buttons that YouTube removed.",
   "permissions": [
     "storage",
