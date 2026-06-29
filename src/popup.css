@@ -1,0 +1,139 @@
+:root {
+  color-scheme: dark;
+  --bg: #111315;
+  --panel: #171a1d;
+  --panel-2: #1f2327;
+  --text: #f4f4f5;
+  --muted: #a4a8ad;
+  --accent: #ff0000;
+  --border: rgba(255, 255, 255, 0.08);
+  --shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background:
+    radial-gradient(circle at top, rgba(255, 0, 0, 0.16), transparent 32%),
+    linear-gradient(180deg, #0c0d0f 0%, #111315 100%);
+  color: var(--text);
+  font: 13px/1.45 "Roboto", "Arial", sans-serif;
+}
+
+.panel {
+  width: 320px;
+  padding: 16px;
+}
+
+.panel__header {
+  margin-bottom: 14px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.subtitle {
+  margin: 8px 0 0;
+  color: var(--muted);
+}
+
+.controls,
+.actions {
+  display: grid;
+  gap: 10px;
+}
+
+.controls {
+  margin-bottom: 14px;
+}
+
+.toggle {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.toggle input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+  flex: 0 0 auto;
+}
+
+.toggle strong,
+.toggle small {
+  display: block;
+}
+
+.toggle small {
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.actions {
+  grid-template-columns: 1fr 1fr;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  text-decoration: none;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.button:hover,
+.button:focus-visible {
+  background: #252a2f;
+  border-color: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
+}
+
+.button--primary {
+  background: var(--accent);
+  border-color: rgba(255, 0, 0, 0.4);
+  color: white;
+}
+
+.button--primary:hover,
+.button--primary:focus-visible {
+  background: #ff1a1a;
+}
+
+.button--link {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.status {
+  min-height: 1.2em;
+  margin: 12px 0 0;
+  color: var(--muted);
+}

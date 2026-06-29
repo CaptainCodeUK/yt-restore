@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>YT Restore</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="panel">
+      <header class="panel__header">
+        <p class="eyebrow">YT Restore</p>
+        <h1>Controls</h1>
+        <p class="subtitle">Tune overlay behavior and refresh button discovery.</p>
+      </header>
+
+      <section class="controls" aria-label="Extension settings">
+        <label class="toggle">
+          <input id="reverse-order" type="checkbox" />
+          <span>
+            <strong>Reverse overlay order</strong>
+            <small>Swap the button order in thumbnails and player buttons.</small>
+          </span>
+        </label>
+
+        <label class="toggle">
+          <input id="hide-native" type="checkbox" />
+          <span>
+            <strong>Hide when native buttons exist</strong>
+            <small>Skip custom overlays if YouTube already shows equivalent controls.</small>
+          </span>
+        </label>
+      </section>
+
+      <section class="actions" aria-label="Extension actions">
+        <button id="rebuild" type="button" class="button button--primary">Rebuild overlays</button>
+        <a class="button button--link" href="https://ko-fi.com/captaincodeuk" target="_blank" rel="noreferrer noopener">Donate</a>
+      </section>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </main>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

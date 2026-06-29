@@ -13,6 +13,17 @@
 "use strict";
 
 const LOG_PREFIX = "[YT Restore]";
+const SETTINGS_STORAGE_KEY = "ytr-settings";
+const STATE_STORAGE_PREFIX = "ytr-";
+
+const DEFAULT_SETTINGS = Object.freeze({
+  reverseOverlayOrder: false,
+  hideWhenNativeButtonsPresent: false,
+});
+
+let currentSettings = { ...DEFAULT_SETTINGS };
+let settingsLoaded = false;
+let resetInProgress = false;
 
 // ─── Page-context bridge ─────────────────────────────────────────────────────
 
@@ -40,6 +51,244 @@ function sendToPage(eventName, detail) {
   document.dispatchEvent(new CustomEvent(eventName, { detail }));
 }
 
+function loadSettings() {
+  if (settingsLoaded) {
+    return Promise.resolve(currentSettings);
+  }
+
+  return chrome.storage.local.get(SETTINGS_STORAGE_KEY).then((result) => {
+    currentSettings = {
+      ...DEFAULT_SETTINGS,
+      ...(result[SETTINGS_STORAGE_KEY] ?? {}),
+    };
+    settingsLoaded = true;
+    return currentSettings;
+  });
+}
+
+function resetSettingsCache() {
+  currentSettings = { ...DEFAULT_SETTINGS };
+  settingsLoaded = false;
+}
+
+function updateSettingsFromStorage(newValue) {
+  currentSettings = {
+    ...DEFAULT_SETTINGS,
+    ...(newValue ?? {}),
+  };
+  settingsLoaded = true;
+}
+
+function getButtonLabelText(button) {
+  return [
+    button.getAttribute("title"),
+    button.getAttribute("aria-label"),
+    button.getAttribute("data-tooltip-text"),
+    button.textContent,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+}
+
+function hasNativeOverlayButtons(scope) {
+  const nativeCandidates = scope.querySelectorAll(
+    [
+      "ytd-thumbnail-overlay-toggle-button-renderer",
+      "ytd-thumbnail-overlay-button-renderer",
+      "ytd-thumbnail-overlay-buttons-renderer",
+      "ytd-thumbnail-overlay-bottom-panel-renderer",
+      "ytd-menu-renderer",
+      "yt-button-view-model",
+      "yt-icon-button",
+      "ytd-button-renderer",
+      "tp-yt-paper-button",
+      "button",
+      "[role='button']",
+    ].join(", ")
+  );
+
+  const nativeLabels = [
+    /add to queue/i,
+    /\bqueue\b/i,
+    /watch later/i,
+    /save to watch later/i,
+    /more actions/i,
+    /more options/i,
+  ];
+
+  return Array.from(nativeCandidates).some((button) => {
+    if (button.closest(".ytr-overlay, #ytr-player-btns")) return false;
+
+    const label = getButtonLabelText(button);
+    return nativeLabels.some((pattern) => pattern.test(label));
+  });
+}
+
+function findPlayerActionsRow() {
+  const selectorCandidates = [
+    "#actions #top-level-buttons-computed",
+    "ytd-menu-renderer #top-level-buttons-computed",
+    "#actions-inner",
+    "ytd-watch-metadata #actions",
+    "ytd-watch-metadata #actions-inner",
+    "ytd-watch-flexy #actions",
+    "ytd-watch-flexy #top-level-buttons-computed",
+    "ytd-watch-flexy #actions-inner",
+    "yt-flexible-actions-view-model",
+    "ytd-menu-renderer",
+  ];
+
+  for (const selector of selectorCandidates) {
+    const candidate = document.querySelector(selector);
+    if (candidate) return candidate;
+  }
+
+  const visibleActionButton = Array.from(document.querySelectorAll("button")).find((button) => {
+    const label = getButtonLabelText(button);
+    return /share|save|more actions/i.test(label);
+  });
+
+  if (!visibleActionButton) return null;
+
+  let scope = visibleActionButton.parentElement;
+  while (scope) {
+    const labels = Array.from(scope.querySelectorAll("button"), getButtonLabelText);
+    if (
+      labels.length >= 3 &&
+      labels.some((label) => /share/i.test(label)) &&
+      labels.some((label) => /save/i.test(label)) &&
+      labels.some((label) => /more actions/i.test(label))
+    ) {
+      return scope;
+    }
+
+    scope = scope.parentElement;
+  }
+
+  return visibleActionButton.parentElement;
+}
+
+function removeOverlayFromRenderer(renderer) {
+  renderer.querySelectorAll(".ytr-overlay").forEach((overlay) => overlay.remove());
+  delete renderer.dataset.ytrAttached;
+
+  const container = findThumbnailContainer(renderer);
+  if (container && !container.querySelector(".ytr-overlay")) {
+    container.classList.remove("ytr-thumb-wrap");
+  }
+}
+
+function syncThumbnailOverlayVisibility(renderer) {
+  const container = findThumbnailContainer(renderer);
+  if (!container) return false;
+
+  const shouldHide = currentSettings.hideWhenNativeButtonsPresent && hasNativeOverlayButtons(renderer);
+  container.classList.toggle("ytr-native-overlay-controls", shouldHide);
+
+  if (shouldHide) {
+    removeOverlayFromRenderer(renderer);
+  }
+
+  return shouldHide;
+}
+
+function bindThumbnailSuppressionWatcher(renderer) {
+  const container = findThumbnailContainer(renderer);
+  if (!container) return;
+
+  if (container.dataset.ytrSuppressionBound === "true") return;
+  container.dataset.ytrSuppressionBound = "true";
+
+  const reevaluate = () => {
+    if (!renderer.isConnected) return;
+    syncThumbnailOverlayVisibility(renderer);
+  };
+
+  container.addEventListener("pointerenter", () => {
+    window.requestAnimationFrame(reevaluate);
+  }, { passive: true });
+
+  container.addEventListener("focusin", reevaluate, { passive: true });
+}
+
+function appendButtonsInOrder(container, buttons) {
+  const orderedButtons = currentSettings.reverseOverlayOrder ? [...buttons].reverse() : buttons;
+  orderedButtons.forEach((button) => container.appendChild(button));
+}
+
+function clearPageStorageWithPrefix(prefix) {
+  [window.localStorage, window.sessionStorage].forEach((storage) => {
+    for (let index = storage.length - 1; index >= 0; index -= 1) {
+      const key = storage.key(index);
+      if (key && key.startsWith(prefix)) {
+        storage.removeItem(key);
+      }
+    }
+  });
+
+  document.cookie
+    .split(";")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .forEach((cookieEntry) => {
+      const equalsIndex = cookieEntry.indexOf("=");
+      const cookieName = equalsIndex >= 0 ? cookieEntry.slice(0, equalsIndex) : cookieEntry;
+      if (!cookieName.startsWith(prefix)) return;
+
+      document.cookie = `${cookieName}=; Max-Age=0; path=/`;
+    });
+}
+
+function clearInjectedState() {
+  document.querySelectorAll(".ytr-overlay, #ytr-player-btns, #ytr-toast").forEach((node) => {
+    node.remove();
+  });
+
+  document.querySelectorAll("[data-ytr-attached='true']").forEach((renderer) => {
+    delete renderer.dataset.ytrAttached;
+  });
+
+  document.querySelectorAll(".ytr-thumb-wrap").forEach((container) => {
+    container.classList.remove("ytr-thumb-wrap");
+  });
+
+  document.querySelectorAll(".ytr-native-overlay-controls").forEach((container) => {
+    container.classList.remove("ytr-native-overlay-controls");
+  });
+
+  document.querySelectorAll("[data-ytr-suppression-bound='true']").forEach((container) => {
+    delete container.dataset.ytrSuppressionBound;
+  });
+
+  playerButtonsAttached = false;
+  clearTimeout(toastTimeout);
+  toastTimeout = null;
+}
+
+async function rebuildOverlays() {
+  clearInjectedState();
+  await loadSettings();
+  attachAllOverlays();
+
+  if (window.location.pathname === "/watch") {
+    attachPlayerButtons();
+  }
+}
+
+async function resetAndRebuild() {
+  resetInProgress = true;
+  try {
+    clearPageStorageWithPrefix(STATE_STORAGE_PREFIX);
+    clearInjectedState();
+    await chrome.storage.local.remove(SETTINGS_STORAGE_KEY);
+    resetSettingsCache();
+    await rebuildOverlays();
+  } finally {
+    resetInProgress = false;
+  }
+}
+
 // ─── Listen for results from inject.js ──────────────────────────────────────
 
 document.addEventListener("ytr:watchLaterResult", (e) => {
@@ -60,6 +309,30 @@ document.addEventListener("ytr:queueResult", (e) => {
     console.warn(`${LOG_PREFIX} Queue failed:`, error);
     showToast("✗ Queue unavailable — see console", true);
   }
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "local") return;
+  if (resetInProgress) return;
+
+  if (changes[SETTINGS_STORAGE_KEY]) {
+    updateSettingsFromStorage(changes[SETTINGS_STORAGE_KEY].newValue);
+    rebuildOverlays();
+  }
+});
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "ytr:resetOverlays") {
+    resetAndRebuild()
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => {
+        console.warn(`${LOG_PREFIX} Reset failed:`, error);
+        sendResponse({ ok: false, error: error?.message ?? String(error) });
+      });
+    return true;
+  }
+
+  return false;
 });
 
 // ─── Video ID extraction ─────────────────────────────────────────────────────
@@ -165,8 +438,7 @@ function createThumbnailOverlay(videoId, includeWatchLater) {
     sendToPage("ytr:addToWatchLater", { videoId });
   });
 
-  overlay.appendChild(queueBtn);
-  if (includeWatchLater) overlay.appendChild(wlBtn);
+  appendButtonsInOrder(overlay, includeWatchLater ? [queueBtn, wlBtn] : [queueBtn]);
   return overlay;
 }
 
@@ -175,10 +447,18 @@ function createThumbnailOverlay(videoId, includeWatchLater) {
  * @param {Element} renderer
  */
 function attachOverlayToRenderer(renderer) {
-  if (renderer.dataset.ytrAttached) return;
-
   const videoId = getVideoIdFromRenderer(renderer);
   if (!videoId) return;
+
+  if (currentSettings.hideWhenNativeButtonsPresent) {
+    bindThumbnailSuppressionWatcher(renderer);
+
+    if (syncThumbnailOverlayVisibility(renderer)) {
+      return;
+    }
+  }
+
+  if (renderer.dataset.ytrAttached) return;
 
   const isShorts =
     renderer.tagName.toLowerCase() === "ytm-shorts-lockup-view-model" ||
@@ -205,6 +485,12 @@ function attachOverlayToRenderer(renderer) {
 
   const overlay = createThumbnailOverlay(videoId, !isShorts);
   container.appendChild(overlay);
+
+  if (currentSettings.hideWhenNativeButtonsPresent) {
+    if (syncThumbnailOverlayVisibility(renderer)) {
+      return;
+    }
+  }
 
   renderer.dataset.ytrAttached = "true";
 }
@@ -240,16 +526,23 @@ let playerButtonsAttached = false;
  * action button row (below the video title).
  */
 function attachPlayerButtons() {
-  if (playerButtonsAttached) return;
-
   const videoId = extractVideoId(window.location.href);
   if (!videoId) return;
 
   // The action buttons row: like, dislike, share, save…
-  const actionsRow = document.querySelector(
-    "#actions #top-level-buttons-computed, ytd-menu-renderer #top-level-buttons-computed, #actions-inner"
-  );
+  const actionsRow = findPlayerActionsRow();
   if (!actionsRow) return;
+
+  if (currentSettings.hideWhenNativeButtonsPresent && hasNativeOverlayButtons(actionsRow)) {
+    const existingButtons = document.getElementById("ytr-player-btns");
+    if (existingButtons) {
+      existingButtons.remove();
+    }
+    playerButtonsAttached = false;
+    return;
+  }
+
+  if (playerButtonsAttached) return;
 
   if (document.getElementById("ytr-player-btns")) return;
 
@@ -285,8 +578,7 @@ function attachPlayerButtons() {
     sendToPage("ytr:addToWatchLater", { videoId });
   });
 
-  container.appendChild(queueBtn);
-  container.appendChild(wlBtn);
+  appendButtonsInOrder(container, [queueBtn, wlBtn]);
   actionsRow.prepend(container);
 
   playerButtonsAttached = true;
@@ -379,20 +671,26 @@ function onRouteChange() {
 // ─── Init ────────────────────────────────────────────────────────────────────
 
 function init() {
-  console.log(`${LOG_PREFIX} Initialised.`);
-  injectPageScript();
-  attachAllOverlays();
+  loadSettings()
+    .then(() => {
+      console.log(`${LOG_PREFIX} Initialised.`);
+      injectPageScript();
+      attachAllOverlays();
 
-  if (window.location.pathname === "/watch") {
-    // Player page might not be rendered yet, poll briefly
-    let attempts = 0;
-    const interval = setInterval(() => {
-      attachPlayerButtons();
-      if (playerButtonsAttached || ++attempts > 20) clearInterval(interval);
-    }, 300);
-  }
+      if (window.location.pathname === "/watch") {
+        // Player page might not be rendered yet, poll briefly
+        let attempts = 0;
+        const interval = setInterval(() => {
+          attachPlayerButtons();
+          if (playerButtonsAttached || ++attempts > 20) clearInterval(interval);
+        }, 300);
+      }
 
-  startObserver();
+      startObserver();
+    })
+    .catch((error) => {
+      console.warn(`${LOG_PREFIX} Failed to load settings:`, error);
+    });
 }
 
 // Wait for the body to be ready

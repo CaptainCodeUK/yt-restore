@@ -33,6 +33,12 @@
   pointer-events: all;
 }
 
+/* When YouTube is already rendering its own hover controls, keep ours hidden. */
+.ytr-thumb-wrap.ytr-native-overlay-controls:hover .ytr-overlay {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .ytr-btn {
   display: flex;
   align-items: center;
