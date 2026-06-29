@@ -24,6 +24,7 @@ const DEFAULT_SETTINGS = Object.freeze({
 let currentSettings = { ...DEFAULT_SETTINGS };
 let settingsLoaded = false;
 let resetInProgress = false;
+const thumbnailSuppressionRetryTimers = new Set();
 
 // ─── Page-context bridge ─────────────────────────────────────────────────────
 
@@ -132,7 +133,6 @@ function hasNativeThumbnailOverlayButtons(scope) {
       "ytd-thumbnail-overlay-button-renderer",
       "ytd-thumbnail-overlay-toggle-button-renderer",
       "ytd-thumbnail-overlay-bottom-panel-renderer",
-      "ytd-thumbnail-overlay-time-status-renderer",
       "yt-thumbnail-view-model ytd-thumbnail-overlay-buttons-renderer",
       "yt-thumbnail-view-model ytd-thumbnail-overlay-button-renderer",
     ].join(", ")
@@ -208,7 +208,7 @@ function syncThumbnailOverlayVisibility(renderer) {
     return false;
   }
 
-  const shouldHide = currentSettings.hideWhenNativeButtonsPresent && hasNativeThumbnailOverlayButtons(renderer);
+  const shouldHide = currentSettings.hideWhenNativeButtonsPresent;
   container.classList.toggle("ytr-native-overlay-controls", shouldHide);
 
   if (shouldHide) {
@@ -230,8 +230,30 @@ function bindThumbnailSuppressionWatcher(renderer) {
     syncThumbnailOverlayVisibility(renderer);
   };
 
+  const scheduleReevaluate = () => {
+    for (const timerId of thumbnailSuppressionRetryTimers) {
+      clearTimeout(timerId);
+    }
+    thumbnailSuppressionRetryTimers.clear();
+
+    let attempts = 0;
+    const run = () => {
+      if (!renderer.isConnected) return;
+
+      const suppressed = syncThumbnailOverlayVisibility(renderer);
+      attempts += 1;
+
+      if (!suppressed && attempts < 4) {
+        const nextTimer = window.setTimeout(run, 40);
+        thumbnailSuppressionRetryTimers.add(nextTimer);
+      }
+    };
+
+    run();
+  };
+
   container.addEventListener("pointerenter", () => {
-    window.requestAnimationFrame(reevaluate);
+    window.requestAnimationFrame(scheduleReevaluate);
   }, { passive: true });
 
   container.addEventListener("focusin", reevaluate, { passive: true });
@@ -285,6 +307,11 @@ function clearInjectedState() {
   document.querySelectorAll("[data-ytr-suppression-bound='true']").forEach((container) => {
     delete container.dataset.ytrSuppressionBound;
   });
+
+  for (const timerId of thumbnailSuppressionRetryTimers) {
+    clearTimeout(timerId);
+  }
+  thumbnailSuppressionRetryTimers.clear();
 
   playerButtonsAttached = false;
   clearTimeout(toastTimeout);
