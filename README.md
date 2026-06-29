@@ -2,14 +2,19 @@
 
 A lightweight Chrome/Edge extension that brings back the **Add to Queue** and **Save to Watch Later** buttons that YouTube removed from video thumbnails.
 
+Version: `1.1.1`
+
 ---
 
 ## Features
 
-- **Thumbnail hover buttons** — hover over any video thumbnail on the home feed, search results, sidebar, or channel pages to reveal buttons at the top-right corner:
+- **Thumbnail hover buttons** — hover over video thumbnails on the home feed, search results, sidebar, or channel pages to reveal buttons at the top-right corner:
   - **Add to Queue** — appends the video to your current watch queue
   - **Watch Later** — saves the video to your Watch Later playlist
-- **Shorts support** — Shorts thumbnails get a Queue button (Watch Later is not supported by YouTube for Shorts)
+- **Shorts support** — Shorts thumbnails get a Queue button; Watch Later is not supported by YouTube for Shorts
+- **Overlay settings** — use the extension popup to reverse the button order or hide the overlay when native YouTube buttons are present
+- **Rebuild action** — force the extension to rebuild overlays from scratch without clearing your saved settings
+- **Donate link** — quick access to the Ko-fi support link from the popup
 - **Dark mode aware** — buttons adapt to YouTube's light and dark themes
 - **SPA-compatible** — uses a `MutationObserver` to handle YouTube's single-page navigation without needing a full page reload
 - **No API keys, no fragile endpoints** — both actions use YouTube's own native on-page menu system, so they work exactly as if you'd clicked through the three-dot menu yourself
@@ -43,12 +48,16 @@ yt-restore/
 │   ├── icon16.png
 │   ├── icon48.png
 │   └── icon128.png
+├── DEPLOYMENT-NOTE.md   # Release handoff note
 ├── store/
 │   ├── listing.md        # Store description copy
 │   └── privacy-policy.html
 └── src/
     ├── content.js        # DOM injection, MutationObserver, overlay attachment
     ├── inject.js         # Page-context script — drives YouTube's native menu actions
+    ├── popup.css         # Popup styling for settings and rebuild controls
+    ├── popup.html        # Popup UI for extension settings
+    ├── popup.js          # Popup logic and settings persistence
     └── styles.css        # All injected UI styles
 ```
 
@@ -61,6 +70,13 @@ yt-restore/
 `content.js` runs as a content script and watches the DOM for YouTube's video renderer elements (`ytd-rich-item-renderer`, `yt-lockup-view-model`, `ytm-shorts-lockup-view-model`, etc.). When one is found, it appends an overlay div inside the thumbnail element and marks the renderer so it isn't processed again.
 
 YouTube's renderer elements use shadow DOM, so both legacy (`ytd-*`) and newer (`yt-lockup-view-model`) element types are handled.
+
+The popup stores two preferences in browser storage:
+
+- reverse overlay button order
+- hide overlay buttons when YouTube already shows its own thumbnail controls
+
+The same popup also provides a **Rebuild Overlays** action, which refreshes injected buttons without wiping those saved preferences.
 
 ### Queue and Watch Later actions
 
@@ -93,6 +109,7 @@ content.js  ──CustomEvent──▶  inject.js (page context)
 | Queue / Watch Later fails with "Could not find menu" | The video's card may not have a three-dot button — open an issue with the page URL |
 | Buttons appear on the wrong video | Open an issue — YouTube may have changed its renderer element structure |
 | Buttons not visible on hover | Check the console for `[YT Restore]` errors; YouTube may have changed its thumbnail component names |
+| Overlay order or native-button hiding looks wrong | Open the popup and use **Rebuild Overlays** to refresh injected state without clearing your preferences |
 
 ---
 
