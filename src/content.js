@@ -125,6 +125,22 @@ function hasNativeOverlayButtons(scope) {
   });
 }
 
+function hasNativeThumbnailOverlayButtons(scope) {
+  const nativeCandidates = scope.querySelectorAll(
+    [
+      "ytd-thumbnail-overlay-buttons-renderer",
+      "ytd-thumbnail-overlay-button-renderer",
+      "ytd-thumbnail-overlay-toggle-button-renderer",
+      "ytd-thumbnail-overlay-bottom-panel-renderer",
+      "ytd-thumbnail-overlay-time-status-renderer",
+      "yt-thumbnail-view-model ytd-thumbnail-overlay-buttons-renderer",
+      "yt-thumbnail-view-model ytd-thumbnail-overlay-button-renderer",
+    ].join(", ")
+  );
+
+  return nativeCandidates.length > 0;
+}
+
 function findPlayerActionsRow() {
   const selectorCandidates = [
     "#actions #top-level-buttons-computed",
@@ -183,7 +199,16 @@ function syncThumbnailOverlayVisibility(renderer) {
   const container = findThumbnailContainer(renderer);
   if (!container) return false;
 
-  const shouldHide = currentSettings.hideWhenNativeButtonsPresent && hasNativeOverlayButtons(renderer);
+  const isShorts =
+    renderer.tagName.toLowerCase() === "ytm-shorts-lockup-view-model" ||
+    !!findThumbnailAnchor(renderer)?.href?.includes("/shorts/");
+
+  if (isShorts) {
+    container.classList.remove("ytr-native-overlay-controls");
+    return false;
+  }
+
+  const shouldHide = currentSettings.hideWhenNativeButtonsPresent && hasNativeThumbnailOverlayButtons(renderer);
   container.classList.toggle("ytr-native-overlay-controls", shouldHide);
 
   if (shouldHide) {
@@ -281,8 +306,7 @@ async function resetAndRebuild() {
   try {
     clearPageStorageWithPrefix(STATE_STORAGE_PREFIX);
     clearInjectedState();
-    await chrome.storage.local.remove(SETTINGS_STORAGE_KEY);
-    resetSettingsCache();
+    await loadSettings();
     await rebuildOverlays();
   } finally {
     resetInProgress = false;
